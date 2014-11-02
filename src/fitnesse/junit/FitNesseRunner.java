@@ -113,6 +113,28 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
     public String pathExtension() default "";
 
   }
+  
+  /**
+   * The <code>JunitXmlOutputDir</code> annotation specifies where the junit xml reports of
+   * run suites and tests will be found after running them. You can either specify
+   * <ul>
+   * <li>a relative or absolute path directly, e.g.: <code>@OutputDir("/tmp/trinidad-results")</code>,
+   * or you can specify
+   * <li>a system property the content of which will be taken as base dir and
+   * optionally give a path extension, e.g.:
+   * <code>@OutputDir(systemProperty = "java.io.tmpdir", pathExtension = "trinidad-results")</code></li>
+   * </ul>
+   */
+  @Retention(RetentionPolicy.RUNTIME)
+  @Target(ElementType.TYPE)
+  public @interface JunitXmlOutputDir {
+
+    public String value() default "";
+    public String systemProperty() default "";
+
+    public String pathExtension() default "";
+
+  }
   /**
    * The <code>Port</code> annotation specifies the port used by the FitNesse
    * server. Default is the standard FitNesse port.
@@ -139,6 +161,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
   private Class<?> suiteClass;
   private String suiteName;
   private String outputDir;
+  private String junitXmlOutputDir;
   private String suiteFilter;
   private String excludeSuiteFilter;
   private boolean debugMode;
@@ -168,6 +191,12 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
       errors.add(t);
     }
 
+    try {
+        this.junitXmlOutputDir = getJUnitXmlOutputDir(suiteClass);
+    } catch (Throwable t) {
+        errors.add(t);
+    }
+    
     try {
       this.suiteFilter = getSuiteFilter(suiteClass);
     } catch (Throwable t) {
@@ -227,6 +256,21 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
             "In annotation @OutputDir you have to specify either 'value' or 'systemProperty'");
   }
 
+  protected String getJUnitXmlOutputDir(Class<?> klass) throws InitializationError {
+	    JunitXmlOutputDir junitXmlOutputDirAnnotation = klass.getAnnotation(JunitXmlOutputDir.class);
+
+	    if (!"".equals(junitXmlOutputDirAnnotation.value())) {
+	      return junitXmlOutputDirAnnotation.value();
+	    }
+	    if (!"".equals(junitXmlOutputDirAnnotation.systemProperty())) {
+	      String baseDir = System.getProperty(junitXmlOutputDirAnnotation.systemProperty());
+	      File outputDir = new File(baseDir, junitXmlOutputDirAnnotation.pathExtension());
+	      return outputDir.getAbsolutePath();
+	    }
+	    throw new InitializationError(
+	            "In annotation @JUnitXmlOutputDir you have to specify either 'value' or 'systemProperty'");
+  }
+  
   protected String getSuiteFilter(Class<?> klass)
           throws Exception {
     SuiteFilter suiteFilterAnnotation = klass.getAnnotation(SuiteFilter.class);
@@ -270,6 +314,7 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
     throw new InitializationError(
             "In annotation @FitnesseDir you have to specify either 'value' or 'systemProperty'");
   }
+  
 
   protected String getFitNesseRoot(Class<?> klass) {
     FitnesseDir fitnesseDirAnnotation = klass.getAnnotation(FitnesseDir.class);
@@ -331,6 +376,11 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
     MultipleTestsRunner testRunner = createTestRunner(pages);
     testRunner.addTestSystemListener(new JUnitRunNotifierResultsListener(notifier, suiteClass));
     testRunner.addExecutionLogListener(new ConsoleExecutionLogListener());
+    
+    if (this.junitXmlOutputDir != null) {
+    	testRunner.addTestSystemListener(new JUnitXMLTestListener(this.junitXmlOutputDir));
+    }
+    
     try {
       executeTests(testRunner);
     } catch (AssertionError e) {
