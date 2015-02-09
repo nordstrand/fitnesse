@@ -259,16 +259,15 @@ public class FitNesseRunner extends ParentRunner<WikiPage> {
   protected String getJUnitXmlOutputDir(Class<?> klass) throws InitializationError {
 	    JunitXmlOutputDir junitXmlOutputDirAnnotation = klass.getAnnotation(JunitXmlOutputDir.class);
 
-	    if (!"".equals(junitXmlOutputDirAnnotation.value())) {
+	    if (junitXmlOutputDirAnnotation != null && !"".equals(junitXmlOutputDirAnnotation.value())) {
 	      return junitXmlOutputDirAnnotation.value();
 	    }
-	    if (!"".equals(junitXmlOutputDirAnnotation.systemProperty())) {
+	    if (junitXmlOutputDirAnnotation != null && !"".equals(junitXmlOutputDirAnnotation.systemProperty())) {
 	      String baseDir = System.getProperty(junitXmlOutputDirAnnotation.systemProperty());
 	      File outputDir = new File(baseDir, junitXmlOutputDirAnnotation.pathExtension());
 	      return outputDir.getAbsolutePath();
 	    }
-	    throw new InitializationError(
-	            "In annotation @JUnitXmlOutputDir you have to specify either 'value' or 'systemProperty'");
+        return null;
   }
   
   protected String getSuiteFilter(Class<?> klass)
